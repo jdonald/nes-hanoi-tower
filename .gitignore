@@ -53,3 +53,9 @@ dkms.conf
 
 # debug information files
 *.dwo
+
+# NES build artifacts
+build/
+*.nes
+build/*.s
+*.lst

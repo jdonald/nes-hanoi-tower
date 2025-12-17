@@ -34,3 +34,22 @@ During gameplay, play a chiptune version of Ode to Joy (Beethoven's #9).
 Implemented using C and the `cc65` compiler toolchain, appropriate makefiles to build a `.nes` file from source.
 
 The `.nes` file should be playable on any decent NES emulator.
+
+## Building
+
+See [BUILD.md](BUILD.md) for detailed build instructions.
+
+Quick start:
+```bash
+# Install cc65 toolchain first
+make
+# Then play with your favorite NES emulator:
+fceux build/hanoi.nes
+```
+
+## Controls
+
+- **D-Pad Left/Right**: Select tower
+- **A Button**: Pick up / Place block
+- **B Button**: Cancel (return block to original tower)
+- **Start Button**: Begin game / Continue to next level
