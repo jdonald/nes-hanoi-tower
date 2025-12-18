@@ -15,6 +15,20 @@ const unsigned char block_colors[MAX_BLOCKS] = {
     COLOR_DEEP_BLUE     /* Block 8 (largest) */
 };
 
+static void block_sprite_style(unsigned char block_num, unsigned char* tile, unsigned char* attributes) {
+    /* Sprites use palette selection (0-3) plus tile pixel value (1/2/3) to pick a color. */
+    if (block_num <= 3) {
+        *attributes = SPRITE_PALETTE_0;
+        *tile = (block_num == 1) ? 0x08 : (block_num == 2) ? 0x09 : 0x01;
+    } else if (block_num <= 6) {
+        *attributes = SPRITE_PALETTE_1;
+        *tile = (block_num == 4) ? 0x08 : (block_num == 5) ? 0x09 : 0x01;
+    } else {
+        *attributes = SPRITE_PALETTE_2;
+        *tile = (block_num == 7) ? 0x08 : 0x09;  /* block 8 uses palette color 2 */
+    }
+}
+
 /* Initialize game state */
 void init_game(game_state_t* game) {
     unsigned char i, j;
@@ -152,9 +166,12 @@ void render_game(game_state_t* game) {
     unsigned int addr;
     unsigned char tower_x[NUM_TOWERS] = {5, 14, 23};  /* X positions of towers */
     unsigned char i;
+    unsigned char sprite_index;
 
     /* Disable rendering for all PPU writes */
     PPU_MASK = 0;
+    clear_sprites();
+    sprite_index = 0;
 
     /* Clear nametable */
     PPU_STATUS;
@@ -253,20 +270,34 @@ void render_game(game_state_t* game) {
         PPU_ADDR = (unsigned char)(addr >> 8);
         PPU_ADDR = (unsigned char)(addr & 0xFF);
         PPU_DATA = 0x07;  /* Tower base tile */
+    }
 
-        /* Draw blocks on this tower */
+    /* Draw blocks as sprites so each disk can be independently colored and pixel-centered */
+    for (tower = 0; tower < NUM_TOWERS; tower++) {
+        unsigned int tower_center_x = (unsigned int)tower_x[tower] * 8 + 4; /* pixel center of pole tile */
         for (block = 0; block < game->tower_heights[tower]; block++) {
             unsigned char block_num = game->towers[tower][block];
-            block_width = block_num;
-            row = 19 - block;
+            unsigned char tile;
+            unsigned char attributes;
+            int left_x;
+            unsigned char y_px;
 
-            /* Draw the block (centered on tower) */
+            block_width = block_num; /* in 8px tiles */
+            row = 19 - block;
+            y_px = (unsigned char)(row * 8);
+
+            block_sprite_style(block_num, &tile, &attributes);
+
+            left_x = (int)tower_center_x - ((int)block_width * 8) / 2;
             for (col = 0; col < block_width; col++) {
-                addr = 0x2000 + (row * 32) + tower_x[tower] - block_width/2 + col;
-                PPU_STATUS;
-                PPU_ADDR = (unsigned char)(addr >> 8);
-                PPU_ADDR = (unsigned char)(addr & 0xFF);
-                PPU_DATA = 0x01;  /* Solid block tile */
+                if (sprite_index >= 64) {
+                    break;
+                }
+                oam_buffer[sprite_index].y = (unsigned char)(y_px - 1); /* NES OAM stores Y-1 */
+                oam_buffer[sprite_index].tile = tile;
+                oam_buffer[sprite_index].attributes = attributes;
+                oam_buffer[sprite_index].x = (unsigned char)(left_x + (int)col * 8);
+                sprite_index++;
             }
         }
     }
@@ -291,14 +322,15 @@ void render_game(game_state_t* game) {
         PPU_DATA = 0x00;  /* Palette 0 (white text on background) */
     }
 
-    /* Remaining rows use palette 2 for blocks (has magenta, orange, teal) */
+    /* Remaining rows use palette 0 (towers/UI are background; blocks are sprites) */
     for (i = 16; i < 64; i++) {
-        PPU_DATA = 0xAA;  /* Palette 2 for all quadrants (10 10 10 10 in binary) */
+        PPU_DATA = 0x00;  /* Palette 0 for all quadrants */
     }
 
     /* Reset scroll and enable rendering */
     PPU_STATUS;
     PPU_SCROLL = 0;
     PPU_SCROLL = 0;
-    PPU_MASK = PPU_MASK_SHOW_BG;
+    update_sprites();
+    PPU_MASK = PPU_MASK_SHOW_BG | PPU_MASK_SHOW_SPRITES;
 }
