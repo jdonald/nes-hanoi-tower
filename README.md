@@ -2,6 +2,11 @@
 
 A homebrew NES game based on Tower of Hanoi
 
+<div style="display: flex; justify-content: space-between;">
+    <img src="screenshot1.png" alt="title screen" style="width: 48%;"/>
+    <img src="screenshot2.png" alt="gameplay" style="width: 48%;"/>
+</div>
+
 ## Title screen
 
 The title screen shows the title Tower of Hanoi, loops music to a chiptune version of "Jingle Bells",
@@ -99,3 +104,4 @@ See [BUILD.md](BUILD.md) for additional build details and troubleshooting.
 - **A Button**: Pick up / Place block
 - **B Button**: Cancel (return block to original tower)
 - **Start Button**: Begin game / Continue to next level
+- **Select Button**: Give up and retry level
