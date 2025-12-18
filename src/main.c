@@ -182,7 +182,7 @@ void show_level_complete(void) {
     unsigned int addr;
 
     /* Overlay "NICE!" on top of the existing gameplay screen (no clear). */
-    addr = 0x2000 + (12 * 32) + 14;
+    addr = 0x2000 + (6 * 32) + 14;
     PPU_STATUS;
     PPU_ADDR = (unsigned char)(addr >> 8);
     PPU_ADDR = (unsigned char)(addr & 0xFF);
@@ -327,6 +327,22 @@ void main(void) {
                     if (hanoi_game.selected_tower < NUM_TOWERS - 1) {
                         hanoi_game.selected_tower++;
                         needs_sprite_rebuild = 1;
+                    }
+                }
+                else if (button_pressed(BUTTON_SELECT)) {
+                    /* Give up on this level: lose a life and restart immediately */
+                    play_sfx_fail();
+                    if (hanoi_game.lives > 0) {
+                        hanoi_game.lives--;
+                    }
+                    if (hanoi_game.lives == 0) {
+                        game_state = STATE_GAME_OVER;
+                        stop_music();
+                        show_game_over();
+                    } else {
+                        start_level(&hanoi_game);
+                        set_bg_color(COLOR_LIGHT_BLUE);
+                        needs_bg_redraw = 1;
                     }
                 }
                 else if (button_pressed(BUTTON_A)) {

@@ -335,10 +335,35 @@ void build_game_sprites(game_state_t* game, unsigned char show_cursor) {
     }
 
     if (show_cursor && sprite_index < 64) {
-        unsigned char cursor_x = (unsigned char)(tower_x[game->selected_tower] * 8);
-        oam_buffer[sprite_index].y = (unsigned char)((9 * 8) - 1);
-        oam_buffer[sprite_index].tile = 0x21;
-        oam_buffer[sprite_index].attributes = SPRITE_PALETTE_0;
-        oam_buffer[sprite_index].x = cursor_x;
+        unsigned int tower_center_x = (unsigned int)tower_x[game->selected_tower] * 8 + 4;
+
+        /* If holding a block, show it where the cursor would be for clearer feedback. */
+        if (game->holding_block != 0) {
+            unsigned char tile;
+            unsigned char attributes;
+            int left_x;
+            unsigned char y_px = (unsigned char)(9 * 8);
+
+            block_width = game->holding_block;
+            block_sprite_style(game->holding_block, &tile, &attributes);
+
+            left_x = (int)tower_center_x - ((int)block_width * 8) / 2;
+            for (col = 0; col < block_width; col++) {
+                if (sprite_index >= 64) {
+                    break;
+                }
+                oam_buffer[sprite_index].y = (unsigned char)(y_px - 1);
+                oam_buffer[sprite_index].tile = tile;
+                oam_buffer[sprite_index].attributes = attributes;
+                oam_buffer[sprite_index].x = (unsigned char)(left_x + (int)col * 8);
+                sprite_index++;
+            }
+        } else {
+            unsigned char cursor_x = (unsigned char)(tower_x[game->selected_tower] * 8);
+            oam_buffer[sprite_index].y = (unsigned char)((9 * 8) - 1);
+            oam_buffer[sprite_index].tile = 0x21;
+            oam_buffer[sprite_index].attributes = SPRITE_PALETTE_0;
+            oam_buffer[sprite_index].x = cursor_x;
+        }
     }
 }

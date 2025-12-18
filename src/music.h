@@ -23,6 +23,13 @@
 #define NOTE_G5  0x015F
 #define NOTE_A5  0x013D
 #define NOTE_B5  0x011E
+#define NOTE_C6  0x00FD
+#define NOTE_D6  0x00E2
+#define NOTE_E6  0x00C7
+#define NOTE_F6  0x00BE
+#define NOTE_G6  0x00AF
+#define NOTE_A6  0x009E
+#define NOTE_B6  0x008F
 #define NOTE_REST 0x0000
 
 /* Music track structure */

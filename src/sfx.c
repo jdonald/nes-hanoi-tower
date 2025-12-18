@@ -3,9 +3,9 @@
 #include "sfx.h"
 
 static const music_note_t success_sfx[] = {
-    {NOTE_C5, 6},
-    {NOTE_E5, 6},
-    {NOTE_G5, 12},
+    {NOTE_C6, 6},
+    {NOTE_E6, 6},
+    {NOTE_G6, 12},
     {NOTE_REST, 0}
 };
 
@@ -75,4 +75,3 @@ void update_sfx(void) {
     sfx_timer = current_sfx[sfx_index].duration;
     sfx_index++;
 }
-
