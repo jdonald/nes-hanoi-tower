@@ -3,7 +3,7 @@
 
 .export _reset, _nmi, _irq
 .import _main
-.importzp sp
+.importzp c_sp
 
 .segment "STARTUP"
 
@@ -46,9 +46,9 @@ vblank2:
 
     ; Initialize stack pointer for C
     lda #$00
-    sta sp
+    sta c_sp
     lda #$07
-    sta sp+1
+    sta c_sp+1
 
     ; Jump to C main function
     jmp _main

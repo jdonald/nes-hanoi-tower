@@ -229,5 +229,5 @@
 .byte $7E,$02,$04,$08,$10,$20,$7E,$00
 .byte $7E,$02,$04,$08,$10,$20,$7E,$00
 
-; Fill remaining CHR ROM space
-.res $1580  ; Remaining space filled with zeros
+; Fill remaining CHR ROM space to 8KB total (0x2000 bytes)
+.res $0C40  ; Remaining space filled with zeros
