@@ -150,22 +150,73 @@ void render_game(game_state_t* game) {
     unsigned char block_width;
     unsigned int addr;
     unsigned char tower_x[NUM_TOWERS] = {5, 14, 23};  /* X positions of towers */
+    unsigned char i;
 
-    /* Clear screen first */
-    clear_screen();
-
-    /* Display level info */
-    write_text(2, 1, "LEVEL");
-    write_text(8, 1, "1");  /* Will improve number rendering later */
-
-    /* Display lives */
-    write_text(14, 1, "LIVES");
-
-    /* Display moves */
-    write_text(2, 3, "MOVES");
-
-    /* Disable rendering for PPU writes */
+    /* Disable rendering for all PPU writes */
     PPU_MASK = 0;
+
+    /* Clear nametable */
+    PPU_STATUS;
+    PPU_ADDR = 0x20;
+    PPU_ADDR = 0x00;
+    for (i = 0; i < 240; i++) {  /* Clear 240 bytes at a time for speed */
+        PPU_DATA = 0x00;
+        PPU_DATA = 0x00;
+        PPU_DATA = 0x00;
+        PPU_DATA = 0x00;
+    }
+
+    /* Clear attribute table */
+    for (i = 0; i < 64; i++) {
+        PPU_DATA = 0x00;
+    }
+
+    /* Write "LEVEL" text at (2, 1) */
+    addr = 0x2000 + (1 * 32) + 2;
+    PPU_STATUS;
+    PPU_ADDR = (unsigned char)(addr >> 8);
+    PPU_ADDR = (unsigned char)(addr & 0xFF);
+    PPU_DATA = 0x4C; /* L */
+    PPU_DATA = 0x45; /* E */
+    PPU_DATA = 0x56; /* V */
+    PPU_DATA = 0x45; /* E */
+    PPU_DATA = 0x4C; /* L */
+
+    /* Write level number */
+    addr = 0x2000 + (1 * 32) + 8;
+    PPU_STATUS;
+    PPU_ADDR = (unsigned char)(addr >> 8);
+    PPU_ADDR = (unsigned char)(addr & 0xFF);
+    PPU_DATA = 0x10 + game->level; /* Level number tile */
+
+    /* Write "LIVES" text at (14, 1) */
+    addr = 0x2000 + (1 * 32) + 14;
+    PPU_STATUS;
+    PPU_ADDR = (unsigned char)(addr >> 8);
+    PPU_ADDR = (unsigned char)(addr & 0xFF);
+    PPU_DATA = 0x4C; /* L */
+    PPU_DATA = 0x49; /* I */
+    PPU_DATA = 0x56; /* V */
+    PPU_DATA = 0x45; /* E */
+    PPU_DATA = 0x53; /* S */
+
+    /* Write lives count */
+    addr = 0x2000 + (1 * 32) + 20;
+    PPU_STATUS;
+    PPU_ADDR = (unsigned char)(addr >> 8);
+    PPU_ADDR = (unsigned char)(addr & 0xFF);
+    PPU_DATA = 0x10 + game->lives; /* Lives number tile */
+
+    /* Write "MOVES" text at (2, 3) */
+    addr = 0x2000 + (3 * 32) + 2;
+    PPU_STATUS;
+    PPU_ADDR = (unsigned char)(addr >> 8);
+    PPU_ADDR = (unsigned char)(addr & 0xFF);
+    PPU_DATA = 0x4D; /* M */
+    PPU_DATA = 0x4F; /* O */
+    PPU_DATA = 0x56; /* V */
+    PPU_DATA = 0x45; /* E */
+    PPU_DATA = 0x53; /* S */
 
     /* Draw towers */
     for (tower = 0; tower < NUM_TOWERS; tower++) {
@@ -208,6 +259,24 @@ void render_game(game_state_t* game) {
     PPU_ADDR = (unsigned char)(addr >> 8);
     PPU_ADDR = (unsigned char)(addr & 0xFF);
     PPU_DATA = 0x21;  /* Cursor character */
+
+    /* Set attribute table for block colors */
+    /* Each attribute byte controls a 4x4 tile area (2x2 attribute areas) */
+    /* Bits 0-1: top-left, 2-3: top-right, 4-5: bottom-left, 6-7: bottom-right */
+    addr = 0x23C0;  /* Start of attribute table */
+    PPU_STATUS;
+    PPU_ADDR = (unsigned char)(addr >> 8);
+    PPU_ADDR = (unsigned char)(addr & 0xFF);
+
+    /* First 2 rows (16 bytes) use palette 0 for text */
+    for (i = 0; i < 16; i++) {
+        PPU_DATA = 0x00;  /* Palette 0 (white text on background) */
+    }
+
+    /* Remaining rows use palette 2 for blocks (has magenta, orange, teal) */
+    for (i = 16; i < 64; i++) {
+        PPU_DATA = 0xAA;  /* Palette 2 for all quadrants (10 10 10 10 in binary) */
+    }
 
     /* Reset scroll and enable rendering */
     PPU_STATUS;
