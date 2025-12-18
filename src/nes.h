@@ -4,41 +4,41 @@
 /* NES Hardware Register Definitions */
 
 /* PPU (Picture Processing Unit) Registers */
-#define PPU_CTRL   (*(unsigned char*)0x2000)
-#define PPU_MASK   (*(unsigned char*)0x2001)
-#define PPU_STATUS (*(unsigned char*)0x2002)
-#define PPU_SCROLL (*(unsigned char*)0x2005)
-#define PPU_ADDR   (*(unsigned char*)0x2006)
-#define PPU_DATA   (*(unsigned char*)0x2007)
-#define OAM_ADDR   (*(unsigned char*)0x2003)
-#define OAM_DATA   (*(unsigned char*)0x2004)
-#define OAM_DMA    (*(unsigned char*)0x4014)
+#define PPU_CTRL   (*(volatile unsigned char*)0x2000)
+#define PPU_MASK   (*(volatile unsigned char*)0x2001)
+#define PPU_STATUS (*(volatile unsigned char*)0x2002)
+#define PPU_SCROLL (*(volatile unsigned char*)0x2005)
+#define PPU_ADDR   (*(volatile unsigned char*)0x2006)
+#define PPU_DATA   (*(volatile unsigned char*)0x2007)
+#define OAM_ADDR   (*(volatile unsigned char*)0x2003)
+#define OAM_DATA   (*(volatile unsigned char*)0x2004)
+#define OAM_DMA    (*(volatile unsigned char*)0x4014)
 
 /* APU (Audio Processing Unit) and Controller Registers */
-#define APU_PULSE1_CTRL (*(unsigned char*)0x4000)
-#define APU_PULSE1_SWEEP (*(unsigned char*)0x4001)
-#define APU_PULSE1_TIMER_LO (*(unsigned char*)0x4002)
-#define APU_PULSE1_TIMER_HI (*(unsigned char*)0x4003)
+#define APU_PULSE1_CTRL (*(volatile unsigned char*)0x4000)
+#define APU_PULSE1_SWEEP (*(volatile unsigned char*)0x4001)
+#define APU_PULSE1_TIMER_LO (*(volatile unsigned char*)0x4002)
+#define APU_PULSE1_TIMER_HI (*(volatile unsigned char*)0x4003)
 
-#define APU_PULSE2_CTRL (*(unsigned char*)0x4004)
-#define APU_PULSE2_SWEEP (*(unsigned char*)0x4005)
-#define APU_PULSE2_TIMER_LO (*(unsigned char*)0x4006)
-#define APU_PULSE2_TIMER_HI (*(unsigned char*)0x4007)
+#define APU_PULSE2_CTRL (*(volatile unsigned char*)0x4004)
+#define APU_PULSE2_SWEEP (*(volatile unsigned char*)0x4005)
+#define APU_PULSE2_TIMER_LO (*(volatile unsigned char*)0x4006)
+#define APU_PULSE2_TIMER_HI (*(volatile unsigned char*)0x4007)
 
-#define APU_TRIANGLE_CTRL (*(unsigned char*)0x4008)
-#define APU_TRIANGLE_TIMER_LO (*(unsigned char*)0x400A)
-#define APU_TRIANGLE_TIMER_HI (*(unsigned char*)0x400B)
+#define APU_TRIANGLE_CTRL (*(volatile unsigned char*)0x4008)
+#define APU_TRIANGLE_TIMER_LO (*(volatile unsigned char*)0x400A)
+#define APU_TRIANGLE_TIMER_HI (*(volatile unsigned char*)0x400B)
 
-#define APU_NOISE_CTRL (*(unsigned char*)0x400C)
-#define APU_NOISE_PERIOD (*(unsigned char*)0x400E)
-#define APU_NOISE_LENGTH (*(unsigned char*)0x400F)
+#define APU_NOISE_CTRL (*(volatile unsigned char*)0x400C)
+#define APU_NOISE_PERIOD (*(volatile unsigned char*)0x400E)
+#define APU_NOISE_LENGTH (*(volatile unsigned char*)0x400F)
 
-#define APU_DMC_CTRL (*(unsigned char*)0x4010)
-#define APU_STATUS (*(unsigned char*)0x4015)
-#define APU_FRAME_COUNTER (*(unsigned char*)0x4017)
+#define APU_DMC_CTRL (*(volatile unsigned char*)0x4010)
+#define APU_STATUS (*(volatile unsigned char*)0x4015)
+#define APU_FRAME_COUNTER (*(volatile unsigned char*)0x4017)
 
-#define CONTROLLER1 (*(unsigned char*)0x4016)
-#define CONTROLLER2 (*(unsigned char*)0x4017)
+#define CONTROLLER1 (*(volatile unsigned char*)0x4016)
+#define CONTROLLER2 (*(volatile unsigned char*)0x4017)
 
 /* PPU Control Register Flags */
 #define PPU_CTRL_NMI          0x80

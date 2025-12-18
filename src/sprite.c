@@ -2,7 +2,9 @@
 #include "sprite.h"
 
 /* OAM buffer - must be page-aligned ($xx00) */
+#pragma bss-name(push, "OAM")
 sprite_t oam_buffer[64];
+#pragma bss-name(pop)
 
 /* Clear all sprites (move them offscreen) */
 void clear_sprites(void) {

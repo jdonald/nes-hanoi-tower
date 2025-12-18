@@ -3,6 +3,8 @@
 #include "input.h"
 #include "music.h"
 #include "hanoi.h"
+#include "sprite.h"
+#include "sfx.h"
 
 /* Game states */
 enum {
@@ -18,6 +20,110 @@ static unsigned char game_state;
 static game_state_t hanoi_game;
 static unsigned char frame_counter;
 static unsigned char level_complete_timer;
+static unsigned char needs_bg_redraw;
+static unsigned char needs_hud_redraw;
+static unsigned char needs_sprite_rebuild;
+static unsigned char needs_nice_overlay;
+
+/* 5x5 "big font" for title screen, using solid BG tile $08 for filled pixels. */
+static const unsigned char big_font[][25] = {
+    /* Each character is a 5x5 tile bitmap, row-major, 1=filled */
+    /* A */
+    {0,1,1,1,0,
+     1,0,0,0,1,
+     1,1,1,1,1,
+     1,0,0,0,1,
+     1,0,0,0,1},
+    /* E */
+    {1,1,1,1,1,
+     1,0,0,0,0,
+     1,1,1,1,0,
+     1,0,0,0,0,
+     1,1,1,1,1},
+    /* F */
+    {1,1,1,1,1,
+     1,0,0,0,0,
+     1,1,1,1,0,
+     1,0,0,0,0,
+     1,0,0,0,0},
+    /* H */
+    {1,0,0,0,1,
+     1,0,0,0,1,
+     1,1,1,1,1,
+     1,0,0,0,1,
+     1,0,0,0,1},
+    /* I */
+    {1,1,1,1,1,
+     0,0,1,0,0,
+     0,0,1,0,0,
+     0,0,1,0,0,
+     1,1,1,1,1},
+    /* N */
+    {1,0,0,0,1,
+     1,1,0,0,1,
+     1,0,1,0,1,
+     1,0,0,1,1,
+     1,0,0,0,1},
+    /* O */
+    {0,1,1,1,0,
+     1,0,0,0,1,
+     1,0,0,0,1,
+     1,0,0,0,1,
+     0,1,1,1,0},
+    /* R */
+    {1,1,1,1,0,
+     1,0,0,0,1,
+     1,1,1,1,0,
+     1,0,1,0,0,
+     1,0,0,1,0},
+    /* T */
+    {1,1,1,1,1,
+     0,0,1,0,0,
+     0,0,1,0,0,
+     0,0,1,0,0,
+     0,0,1,0,0},
+    /* W */
+    {1,0,0,0,1,
+     1,0,0,0,1,
+     1,0,1,0,1,
+     1,1,0,1,1,
+     1,0,0,0,1}
+};
+
+enum {
+    BIG_A = 0,
+    BIG_E,
+    BIG_F,
+    BIG_H,
+    BIG_I,
+    BIG_N,
+    BIG_O,
+    BIG_R,
+    BIG_T,
+    BIG_W
+};
+
+static void draw_big_char(unsigned char x0, unsigned char y0, unsigned char glyph) {
+    unsigned char r, c;
+    unsigned int base = 0x2000 + ((unsigned int)y0 * 32) + x0;
+    unsigned char big_tile = 0x08; /* Solid tile using palette color 1 */
+
+    for (r = 0; r < 5; r++) {
+        PPU_STATUS;
+        PPU_ADDR = (unsigned char)((base + (unsigned int)r * 32) >> 8);
+        PPU_ADDR = (unsigned char)((base + (unsigned int)r * 32) & 0xFF);
+        for (c = 0; c < 5; c++) {
+            PPU_DATA = big_font[glyph][r * 5 + c] ? big_tile : 0x00;
+        }
+    }
+}
+
+static void draw_big_word(unsigned char x0, unsigned char y0, const unsigned char* glyphs, unsigned char len) {
+    unsigned char idx;
+    for (idx = 0; idx < len; idx++) {
+        draw_big_char((unsigned char)(x0 + idx * 6), y0, glyphs[idx]);
+    }
+}
 
 /* Initialize NES hardware */
 void init_nes(void) {
@@ -94,12 +200,18 @@ void init_nes(void) {
 void show_title_screen(void) {
     unsigned int addr;
     unsigned char i;
+    unsigned char pass;
 
     /* Set pink background for title screen */
     set_bg_color(COLOR_PINK);
 
     /* Disable rendering for PPU writes */
     PPU_MASK = 0;
+    PPU_CTRL = 0;
+
+    /* Wait for vblank to avoid any emulator/PPU edge cases around VRAM writes */
+    while (!(PPU_STATUS & PPU_STATUS_VBLANK)) {
+    }
 
     /* Clear nametable */
     PPU_STATUS;
@@ -112,55 +224,56 @@ void show_title_screen(void) {
         PPU_DATA = 0x00;
     }
 
-    /* Clear attribute table to use palette 0 (white text) */
+    /* Clear attribute table (we'll set it after drawing) */
     for (i = 0; i < 64; i++) {
         PPU_DATA = 0x00;
     }
 
-    /* Write "TOWER OF HANOI" title at row 8 (centered) */
-    addr = 0x2000 + (8 * 32) + 7;
-    PPU_STATUS;
-    PPU_ADDR = (unsigned char)(addr >> 8);
-    PPU_ADDR = (unsigned char)(addr & 0xFF);
-    PPU_DATA = 0x54; /* T */
-    PPU_DATA = 0x4F; /* O */
-    PPU_DATA = 0x57; /* W */
-    PPU_DATA = 0x45; /* E */
-    PPU_DATA = 0x52; /* R */
-    PPU_DATA = 0x00; /* space */
-    PPU_DATA = 0x4F; /* O */
-    PPU_DATA = 0x46; /* F */
-    PPU_DATA = 0x00; /* space */
-    PPU_DATA = 0x48; /* H */
-    PPU_DATA = 0x41; /* A */
-    PPU_DATA = 0x4E; /* N */
-    PPU_DATA = 0x4F; /* O */
-    PPU_DATA = 0x49; /* I */
+    /* Draw large title and prompt. Draw twice as a robustness workaround against dropped VRAM writes. */
+    for (pass = 0; pass < 2; pass++) {
+        static const unsigned char tower_glyphs[] = {BIG_T, BIG_O, BIG_W, BIG_E, BIG_R};
+        static const unsigned char of_glyphs[] = {BIG_O, BIG_F};
+        static const unsigned char hanoi_glyphs[] = {BIG_H, BIG_A, BIG_N, BIG_O, BIG_I};
 
-    /* Write "PRESS START" at row 16 */
-    addr = 0x2000 + (16 * 32) + 8;
-    PPU_STATUS;
-    PPU_ADDR = (unsigned char)(addr >> 8);
-    PPU_ADDR = (unsigned char)(addr & 0xFF);
-    PPU_DATA = 0x50; /* P */
-    PPU_DATA = 0x52; /* R */
-    PPU_DATA = 0x45; /* E */
-    PPU_DATA = 0x53; /* S */
-    PPU_DATA = 0x53; /* S */
-    PPU_DATA = 0x00; /* space */
-    PPU_DATA = 0x53; /* S */
-    PPU_DATA = 0x54; /* T */
-    PPU_DATA = 0x41; /* A */
-    PPU_DATA = 0x52; /* R */
-    PPU_DATA = 0x54; /* T */
+        /* Word widths in tiles: len*5 + (len-1)*1 */
+        unsigned char tower_w = (unsigned char)(5 * 5 + 4);
+        unsigned char of_w = (unsigned char)(2 * 5 + 1);
+        unsigned char hanoi_w = (unsigned char)(5 * 5 + 4);
 
-    /* Set attribute table to use palette 3 (cyan/blue) for title text area */
-    addr = 0x23C0 + 16;  /* Attribute byte for row 8 area */
+        unsigned char tower_x = (unsigned char)((32 - tower_w) / 2);
+        unsigned char of_x = (unsigned char)((32 - of_w) / 2);
+        unsigned char hanoi_x = (unsigned char)((32 - hanoi_w) / 2);
+
+        draw_big_word(tower_x, 4, tower_glyphs, 5);
+        draw_big_word(of_x, 11, of_glyphs, 2);
+        draw_big_word(hanoi_x, 18, hanoi_glyphs, 5);
+
+        /* Write "PRESS START" below the title (manual write; keep rendering disabled) */
+        addr = 0x2000 + (26 * 32) + 10;
+        PPU_STATUS;
+        PPU_ADDR = (unsigned char)(addr >> 8);
+        PPU_ADDR = (unsigned char)(addr & 0xFF);
+        PPU_DATA = 0x50; /* P */
+        PPU_DATA = 0x52; /* R */
+        PPU_DATA = 0x45; /* E */
+        PPU_DATA = 0x53; /* S */
+        PPU_DATA = 0x53; /* S */
+        PPU_DATA = 0x00; /* space */
+        PPU_DATA = 0x53; /* S */
+        PPU_DATA = 0x54; /* T */
+        PPU_DATA = 0x41; /* A */
+        PPU_DATA = 0x52; /* R */
+        PPU_DATA = 0x54; /* T */
+    }
+
+    /* Set attribute table to use palette 0 so the big title renders all-white */
+    PPU_MASK = 0;
+    addr = 0x23C0;
     PPU_STATUS;
     PPU_ADDR = (unsigned char)(addr >> 8);
     PPU_ADDR = (unsigned char)(addr & 0xFF);
-    for (i = 0; i < 8; i++) {
-        PPU_DATA = 0xFF;  /* Palette 3 for all quadrants */
+    for (i = 0; i < 64; i++) {
+        PPU_DATA = 0x00;
     }
 
     /* Reset scroll and enable rendering */
@@ -174,29 +287,9 @@ void show_title_screen(void) {
 /* Display level complete screen */
 void show_level_complete(void) {
     unsigned int addr;
-    unsigned char i;
 
-    /* Disable rendering for PPU writes */
-    PPU_MASK = 0;
-
-    /* Clear nametable */
-    PPU_STATUS;
-    PPU_ADDR = 0x20;
-    PPU_ADDR = 0x00;
-    for (i = 0; i < 240; i++) {
-        PPU_DATA = 0x00;
-        PPU_DATA = 0x00;
-        PPU_DATA = 0x00;
-        PPU_DATA = 0x00;
-    }
-
-    /* Clear attribute table */
-    for (i = 0; i < 64; i++) {
-        PPU_DATA = 0x00;
-    }
-
-    /* Write "NICE!" centered */
-    addr = 0x2000 + (12 * 32) + 14;
+    /* Overlay "NICE!" on top of the existing gameplay screen (no clear). */
+    addr = 0x2000 + (6 * 32) + 14;
     PPU_STATUS;
     PPU_ADDR = (unsigned char)(addr >> 8);
     PPU_ADDR = (unsigned char)(addr & 0xFF);
@@ -206,12 +299,32 @@ void show_level_complete(void) {
     PPU_DATA = 0x45; /* E */
     PPU_DATA = 0x21; /* ! */
 
-    /* Reset scroll and enable rendering */
+    /*
+     * Make the overlay use background palette 2 so it shows up in bright pink/magenta.
+     * "NICE!" spans attribute columns 3-4 on attribute row 1 (tile Y=6).
+     */
+    addr = 0x23C0 + (1 * 8) + 3;
+    PPU_STATUS;
+    PPU_ADDR = (unsigned char)(addr >> 8);
+    PPU_ADDR = (unsigned char)(addr & 0xFF);
+    PPU_DATA = 0xAA; /* palette 2 for all quadrants */
+    PPU_DATA = 0xAA; /* next attribute byte */
+
     PPU_STATUS;
     PPU_SCROLL = 0;
     PPU_SCROLL = 0;
+}
+
+/* Display life lost screen (used when giving up via Select). */
+void show_life_lost(void) {
+    clear_screen();
+
+    write_text(12, 10, "LIFE LOST");
+
     PPU_CTRL = PPU_CTRL_NMI;
     PPU_MASK = PPU_MASK_SHOW_BG;
+    clear_sprites();
+    update_sprites();
 }
 
 /* Display failed level screen */
@@ -224,6 +337,8 @@ void show_level_failed(void) {
 
     PPU_CTRL = PPU_CTRL_NMI;
     PPU_MASK = PPU_MASK_SHOW_BG;
+    clear_sprites();
+    update_sprites();
 }
 
 /* Display game over screen */
@@ -235,6 +350,8 @@ void show_game_over(void) {
 
     PPU_CTRL = PPU_CTRL_NMI;
     PPU_MASK = PPU_MASK_SHOW_BG;
+    clear_sprites();
+    update_sprites();
 }
 
 /* Display win screen */
@@ -247,6 +364,8 @@ void show_win_screen(void) {
 
     PPU_CTRL = PPU_CTRL_NMI;
     PPU_MASK = PPU_MASK_SHOW_BG;
+    clear_sprites();
+    update_sprites();
 }
 
 /* Wait for vblank */
@@ -261,20 +380,52 @@ void main(void) {
     /* Initialize hardware */
     init_nes();
     init_music();
+    init_sfx();
 
     /* Initialize game state */
     game_state = STATE_TITLE;
     frame_counter = 0;
+    needs_bg_redraw = 0;
+    needs_hud_redraw = 0;
+    needs_sprite_rebuild = 0;
+    needs_nice_overlay = 0;
 
     /* Show title screen */
     show_title_screen();
     play_song(SONG_JINGLE_BELLS);
+    clear_sprites();
+    update_sprites();
 
     /* Main game loop */
     while (1) {
-        /* Wait for vblank and update music */
+        /* Wait for vblank and perform PPU updates first to avoid visible artifacts */
         wait_vblank();
+
+        if (game_state == STATE_GAMEPLAY || game_state == STATE_LEVEL_COMPLETE) {
+            if (needs_bg_redraw) {
+                render_game_background(&hanoi_game);
+                needs_bg_redraw = 0;
+                needs_hud_redraw = 0;
+                needs_sprite_rebuild = 1;
+            }
+            if (needs_hud_redraw) {
+                render_game_hud(&hanoi_game);
+                needs_hud_redraw = 0;
+            }
+            if (needs_nice_overlay) {
+                show_level_complete();
+                needs_nice_overlay = 0;
+            }
+            if (needs_sprite_rebuild) {
+                build_game_sprites(&hanoi_game, (game_state == STATE_GAMEPLAY));
+                needs_sprite_rebuild = 0;
+            }
+            update_sprites();
+        }
+
+        /* Update audio once per frame */
         update_music();
+        update_sfx();
         frame_counter++;
 
         /* Read controller input */
@@ -290,7 +441,7 @@ void main(void) {
                     play_song(SONG_ODE_TO_JOY);
                     /* Set light blue background for gameplay */
                     set_bg_color(COLOR_LIGHT_BLUE);
-                    render_game(&hanoi_game);
+                    needs_bg_redraw = 1;
                 }
                 break;
 
@@ -299,43 +450,76 @@ void main(void) {
                 if (button_pressed(BUTTON_LEFT)) {
                     if (hanoi_game.selected_tower > 0) {
                         hanoi_game.selected_tower--;
-                        render_game(&hanoi_game);
+                        needs_sprite_rebuild = 1;
                     }
                 }
                 else if (button_pressed(BUTTON_RIGHT)) {
                     if (hanoi_game.selected_tower < NUM_TOWERS - 1) {
                         hanoi_game.selected_tower++;
-                        render_game(&hanoi_game);
+                        needs_sprite_rebuild = 1;
+                    }
+                }
+                else if (button_pressed(BUTTON_SELECT)) {
+                    /* Give up on this level: show LIFE LOST and restart after a brief pause */
+                    play_sfx_fail();
+                    if (hanoi_game.lives > 0) {
+                        hanoi_game.lives--;
+                    }
+                    if (hanoi_game.lives == 0) {
+                        show_life_lost();
+                        for (win_status = 0; win_status < 120; win_status++) {
+                            wait_vblank();
+                        }
+                        game_state = STATE_GAME_OVER;
+                        stop_music();
+                        show_game_over();
+                    } else {
+                        show_life_lost();
+                        start_level(&hanoi_game);
+                        for (win_status = 0; win_status < 120; win_status++) {
+                            wait_vblank();
+                        }
+                        set_bg_color(COLOR_LIGHT_BLUE);
+                        needs_bg_redraw = 1;
                     }
                 }
                 else if (button_pressed(BUTTON_A)) {
+                    unsigned char should_render = 1;
                     if (hanoi_game.holding_block == 0) {
                         /* Try to pick up a block */
                         pickup_block(&hanoi_game, hanoi_game.selected_tower);
+                        needs_sprite_rebuild = 1;
                     } else {
                         /* Try to place the block */
                         if (place_block(&hanoi_game, hanoi_game.selected_tower)) {
+                            needs_hud_redraw = 1;
+                            needs_sprite_rebuild = 1;
                             /* Check for win */
                             win_status = check_win(&hanoi_game);
                             if (win_status == 1) {
                                 /* Perfect win */
-                                hanoi_game.level++;
-                                if (hanoi_game.level > 8) {
+                                play_sfx_success();
+                                if (hanoi_game.level >= 8) {
                                     game_state = STATE_WIN_GAME;
                                     stop_music();
                                     show_win_screen();
+                                    should_render = 0;
                                 } else {
                                     game_state = STATE_LEVEL_COMPLETE;
                                     level_complete_timer = 120;  /* 2 seconds at 60 FPS */
-                                    show_level_complete();
+                                    needs_nice_overlay = 1;
+                                    needs_sprite_rebuild = 1; /* hide cursor during overlay */
+                                    should_render = 0;
                                 }
                             } else if (win_status == 2) {
                                 /* Complete but not optimal - lose a life */
+                                play_sfx_fail();
                                 hanoi_game.lives--;
                                 if (hanoi_game.lives == 0) {
                                     game_state = STATE_GAME_OVER;
                                     stop_music();
                                     show_game_over();
+                                    should_render = 0;
                                 } else {
                                     show_level_failed();
                                     start_level(&hanoi_game);
@@ -343,19 +527,25 @@ void main(void) {
                                     for (win_status = 0; win_status < 120; win_status++) {
                                         wait_vblank();
                                     }
-                                    render_game(&hanoi_game);
+                                    game_state = STATE_GAMEPLAY;
+                                    set_bg_color(COLOR_LIGHT_BLUE);
+                                    needs_bg_redraw = 1;
+                                    should_render = 0;
                                 }
                             }
                         }
                     }
-                    render_game(&hanoi_game);
+                    if (should_render) {
+                        /* No full redraw needed; sprites/HUD are updated during vblank. */
+                    }
                 }
                 else if (button_pressed(BUTTON_B)) {
                     /* Cancel - put block back */
                     if (hanoi_game.holding_block != 0) {
                         place_block(&hanoi_game, hanoi_game.holding_from);
                         hanoi_game.moves--;  /* Don't count this as a move */
-                        render_game(&hanoi_game);
+                        needs_hud_redraw = 1;
+                        needs_sprite_rebuild = 1;
                     }
                 }
                 break;
@@ -363,9 +553,10 @@ void main(void) {
             case STATE_LEVEL_COMPLETE:
                 /* Auto-proceed after timer, or immediately on Start/A button */
                 if (button_pressed(BUTTON_START) || button_pressed(BUTTON_A) || level_complete_timer == 0) {
+                    hanoi_game.level++;
                     start_level(&hanoi_game);
                     game_state = STATE_GAMEPLAY;
-                    render_game(&hanoi_game);
+                    needs_bg_redraw = 1;
                 } else {
                     level_complete_timer--;
                 }
@@ -377,6 +568,8 @@ void main(void) {
                     game_state = STATE_TITLE;
                     show_title_screen();
                     play_song(SONG_JINGLE_BELLS);
+                    clear_sprites();
+                    update_sprites();
                 }
                 break;
 
@@ -386,6 +579,8 @@ void main(void) {
                     game_state = STATE_TITLE;
                     show_title_screen();
                     play_song(SONG_JINGLE_BELLS);
+                    clear_sprites();
+                    update_sprites();
                 }
                 break;
         }
