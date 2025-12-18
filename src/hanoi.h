@@ -37,6 +37,8 @@ unsigned char place_block(game_state_t* game, unsigned char tower);
 unsigned char check_win(game_state_t* game);
 
 /* Render the game */
-void render_game(game_state_t* game);
+void render_game_background(game_state_t* game);
+void render_game_hud(game_state_t* game);
+void build_game_sprites(game_state_t* game, unsigned char show_cursor);
 
 #endif /* HANOI_H */

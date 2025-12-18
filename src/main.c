@@ -3,6 +3,8 @@
 #include "input.h"
 #include "music.h"
 #include "hanoi.h"
+#include "sprite.h"
+#include "sfx.h"
 
 /* Game states */
 enum {
@@ -18,6 +20,10 @@ static unsigned char game_state;
 static game_state_t hanoi_game;
 static unsigned char frame_counter;
 static unsigned char level_complete_timer;
+static unsigned char needs_bg_redraw;
+static unsigned char needs_hud_redraw;
+static unsigned char needs_sprite_rebuild;
+static unsigned char needs_nice_overlay;
 
 /* Initialize NES hardware */
 void init_nes(void) {
@@ -174,28 +180,8 @@ void show_title_screen(void) {
 /* Display level complete screen */
 void show_level_complete(void) {
     unsigned int addr;
-    unsigned char i;
 
-    /* Disable rendering for PPU writes */
-    PPU_MASK = 0;
-
-    /* Clear nametable */
-    PPU_STATUS;
-    PPU_ADDR = 0x20;
-    PPU_ADDR = 0x00;
-    for (i = 0; i < 240; i++) {
-        PPU_DATA = 0x00;
-        PPU_DATA = 0x00;
-        PPU_DATA = 0x00;
-        PPU_DATA = 0x00;
-    }
-
-    /* Clear attribute table */
-    for (i = 0; i < 64; i++) {
-        PPU_DATA = 0x00;
-    }
-
-    /* Write "NICE!" centered */
+    /* Overlay "NICE!" on top of the existing gameplay screen (no clear). */
     addr = 0x2000 + (12 * 32) + 14;
     PPU_STATUS;
     PPU_ADDR = (unsigned char)(addr >> 8);
@@ -206,12 +192,9 @@ void show_level_complete(void) {
     PPU_DATA = 0x45; /* E */
     PPU_DATA = 0x21; /* ! */
 
-    /* Reset scroll and enable rendering */
     PPU_STATUS;
     PPU_SCROLL = 0;
     PPU_SCROLL = 0;
-    PPU_CTRL = PPU_CTRL_NMI;
-    PPU_MASK = PPU_MASK_SHOW_BG;
 }
 
 /* Display failed level screen */
@@ -224,6 +207,8 @@ void show_level_failed(void) {
 
     PPU_CTRL = PPU_CTRL_NMI;
     PPU_MASK = PPU_MASK_SHOW_BG;
+    clear_sprites();
+    update_sprites();
 }
 
 /* Display game over screen */
@@ -235,6 +220,8 @@ void show_game_over(void) {
 
     PPU_CTRL = PPU_CTRL_NMI;
     PPU_MASK = PPU_MASK_SHOW_BG;
+    clear_sprites();
+    update_sprites();
 }
 
 /* Display win screen */
@@ -247,6 +234,8 @@ void show_win_screen(void) {
 
     PPU_CTRL = PPU_CTRL_NMI;
     PPU_MASK = PPU_MASK_SHOW_BG;
+    clear_sprites();
+    update_sprites();
 }
 
 /* Wait for vblank */
@@ -261,20 +250,52 @@ void main(void) {
     /* Initialize hardware */
     init_nes();
     init_music();
+    init_sfx();
 
     /* Initialize game state */
     game_state = STATE_TITLE;
     frame_counter = 0;
+    needs_bg_redraw = 0;
+    needs_hud_redraw = 0;
+    needs_sprite_rebuild = 0;
+    needs_nice_overlay = 0;
 
     /* Show title screen */
     show_title_screen();
     play_song(SONG_JINGLE_BELLS);
+    clear_sprites();
+    update_sprites();
 
     /* Main game loop */
     while (1) {
-        /* Wait for vblank and update music */
+        /* Wait for vblank and perform PPU updates first to avoid visible artifacts */
         wait_vblank();
+
+        if (game_state == STATE_GAMEPLAY || game_state == STATE_LEVEL_COMPLETE) {
+            if (needs_bg_redraw) {
+                render_game_background(&hanoi_game);
+                needs_bg_redraw = 0;
+                needs_hud_redraw = 0;
+                needs_sprite_rebuild = 1;
+            }
+            if (needs_hud_redraw) {
+                render_game_hud(&hanoi_game);
+                needs_hud_redraw = 0;
+            }
+            if (needs_nice_overlay) {
+                show_level_complete();
+                needs_nice_overlay = 0;
+            }
+            if (needs_sprite_rebuild) {
+                build_game_sprites(&hanoi_game, (game_state == STATE_GAMEPLAY));
+                needs_sprite_rebuild = 0;
+            }
+            update_sprites();
+        }
+
+        /* Update audio once per frame */
         update_music();
+        update_sfx();
         frame_counter++;
 
         /* Read controller input */
@@ -290,7 +311,7 @@ void main(void) {
                     play_song(SONG_ODE_TO_JOY);
                     /* Set light blue background for gameplay */
                     set_bg_color(COLOR_LIGHT_BLUE);
-                    render_game(&hanoi_game);
+                    needs_bg_redraw = 1;
                 }
                 break;
 
@@ -299,13 +320,13 @@ void main(void) {
                 if (button_pressed(BUTTON_LEFT)) {
                     if (hanoi_game.selected_tower > 0) {
                         hanoi_game.selected_tower--;
-                        render_game(&hanoi_game);
+                        needs_sprite_rebuild = 1;
                     }
                 }
                 else if (button_pressed(BUTTON_RIGHT)) {
                     if (hanoi_game.selected_tower < NUM_TOWERS - 1) {
                         hanoi_game.selected_tower++;
-                        render_game(&hanoi_game);
+                        needs_sprite_rebuild = 1;
                     }
                 }
                 else if (button_pressed(BUTTON_A)) {
@@ -313,15 +334,18 @@ void main(void) {
                     if (hanoi_game.holding_block == 0) {
                         /* Try to pick up a block */
                         pickup_block(&hanoi_game, hanoi_game.selected_tower);
+                        needs_sprite_rebuild = 1;
                     } else {
                         /* Try to place the block */
                         if (place_block(&hanoi_game, hanoi_game.selected_tower)) {
+                            needs_hud_redraw = 1;
+                            needs_sprite_rebuild = 1;
                             /* Check for win */
                             win_status = check_win(&hanoi_game);
                             if (win_status == 1) {
                                 /* Perfect win */
-                                hanoi_game.level++;
-                                if (hanoi_game.level > 8) {
+                                play_sfx_success();
+                                if (hanoi_game.level >= 8) {
                                     game_state = STATE_WIN_GAME;
                                     stop_music();
                                     show_win_screen();
@@ -329,11 +353,13 @@ void main(void) {
                                 } else {
                                     game_state = STATE_LEVEL_COMPLETE;
                                     level_complete_timer = 120;  /* 2 seconds at 60 FPS */
-                                    show_level_complete();
+                                    needs_nice_overlay = 1;
+                                    needs_sprite_rebuild = 1; /* hide cursor during overlay */
                                     should_render = 0;
                                 }
                             } else if (win_status == 2) {
                                 /* Complete but not optimal - lose a life */
+                                play_sfx_fail();
                                 hanoi_game.lives--;
                                 if (hanoi_game.lives == 0) {
                                     game_state = STATE_GAME_OVER;
@@ -347,14 +373,16 @@ void main(void) {
                                     for (win_status = 0; win_status < 120; win_status++) {
                                         wait_vblank();
                                     }
-                                    render_game(&hanoi_game);
+                                    game_state = STATE_GAMEPLAY;
+                                    set_bg_color(COLOR_LIGHT_BLUE);
+                                    needs_bg_redraw = 1;
                                     should_render = 0;
                                 }
                             }
                         }
                     }
                     if (should_render) {
-                        render_game(&hanoi_game);
+                        /* No full redraw needed; sprites/HUD are updated during vblank. */
                     }
                 }
                 else if (button_pressed(BUTTON_B)) {
@@ -362,7 +390,8 @@ void main(void) {
                     if (hanoi_game.holding_block != 0) {
                         place_block(&hanoi_game, hanoi_game.holding_from);
                         hanoi_game.moves--;  /* Don't count this as a move */
-                        render_game(&hanoi_game);
+                        needs_hud_redraw = 1;
+                        needs_sprite_rebuild = 1;
                     }
                 }
                 break;
@@ -370,9 +399,10 @@ void main(void) {
             case STATE_LEVEL_COMPLETE:
                 /* Auto-proceed after timer, or immediately on Start/A button */
                 if (button_pressed(BUTTON_START) || button_pressed(BUTTON_A) || level_complete_timer == 0) {
+                    hanoi_game.level++;
                     start_level(&hanoi_game);
                     game_state = STATE_GAMEPLAY;
-                    render_game(&hanoi_game);
+                    needs_bg_redraw = 1;
                 } else {
                     level_complete_timer--;
                 }
@@ -384,6 +414,8 @@ void main(void) {
                     game_state = STATE_TITLE;
                     show_title_screen();
                     play_song(SONG_JINGLE_BELLS);
+                    clear_sprites();
+                    update_sprites();
                 }
                 break;
 
@@ -393,6 +425,8 @@ void main(void) {
                     game_state = STATE_TITLE;
                     show_title_screen();
                     play_song(SONG_JINGLE_BELLS);
+                    clear_sprites();
+                    update_sprites();
                 }
                 break;
         }

@@ -29,6 +29,26 @@ static void block_sprite_style(unsigned char block_num, unsigned char* tile, uns
     }
 }
 
+static void write_digit_tile(unsigned int addr, unsigned char value) {
+    PPU_STATUS;
+    PPU_ADDR = (unsigned char)(addr >> 8);
+    PPU_ADDR = (unsigned char)(addr & 0xFF);
+    PPU_DATA = 0x10 + value;
+}
+
+static void write_moves_3_digits(unsigned int addr, unsigned char moves) {
+    unsigned char hundreds = moves / 100;
+    unsigned char tens = (moves % 100) / 10;
+    unsigned char ones = moves % 10;
+
+    PPU_STATUS;
+    PPU_ADDR = (unsigned char)(addr >> 8);
+    PPU_ADDR = (unsigned char)(addr & 0xFF);
+    PPU_DATA = hundreds ? (0x10 + hundreds) : 0x00;
+    PPU_DATA = (hundreds || tens) ? (0x10 + tens) : 0x00;
+    PPU_DATA = 0x10 + ones;
+}
+
 /* Initialize game state */
 void init_game(game_state_t* game) {
     unsigned char i, j;
@@ -159,19 +179,14 @@ unsigned char check_win(game_state_t* game) {
     return 0;  /* Not complete */
 }
 
-/* Render the game to the screen */
-void render_game(game_state_t* game) {
-    unsigned char tower, block, row, col;
-    unsigned char block_width;
+void render_game_background(game_state_t* game) {
+    unsigned char tower, row;
     unsigned int addr;
     unsigned char tower_x[NUM_TOWERS] = {5, 14, 23};  /* X positions of towers */
     unsigned char i;
-    unsigned char sprite_index;
 
     /* Disable rendering for all PPU writes */
     PPU_MASK = 0;
-    clear_sprites();
-    sprite_index = 0;
 
     /* Clear nametable */
     PPU_STATUS;
@@ -200,13 +215,6 @@ void render_game(game_state_t* game) {
     PPU_DATA = 0x45; /* E */
     PPU_DATA = 0x4C; /* L */
 
-    /* Write level number */
-    addr = 0x2000 + (1 * 32) + 8;
-    PPU_STATUS;
-    PPU_ADDR = (unsigned char)(addr >> 8);
-    PPU_ADDR = (unsigned char)(addr & 0xFF);
-    PPU_DATA = 0x10 + game->level; /* Level number tile */
-
     /* Write "LIVES" text at (14, 1) */
     addr = 0x2000 + (1 * 32) + 14;
     PPU_STATUS;
@@ -217,13 +225,6 @@ void render_game(game_state_t* game) {
     PPU_DATA = 0x56; /* V */
     PPU_DATA = 0x45; /* E */
     PPU_DATA = 0x53; /* S */
-
-    /* Write lives count */
-    addr = 0x2000 + (1 * 32) + 20;
-    PPU_STATUS;
-    PPU_ADDR = (unsigned char)(addr >> 8);
-    PPU_ADDR = (unsigned char)(addr & 0xFF);
-    PPU_DATA = 0x10 + game->lives; /* Lives number tile */
 
     /* Write "MOVES" text at (2, 3) */
     addr = 0x2000 + (3 * 32) + 2;
@@ -236,22 +237,10 @@ void render_game(game_state_t* game) {
     PPU_DATA = 0x45; /* E */
     PPU_DATA = 0x53; /* S */
 
-    /* Write moves count (0-255) next to "MOVES" at (8, 3), padded to 3 chars */
-    {
-        unsigned char moves = game->moves;
-        unsigned char hundreds = moves / 100;
-        unsigned char tens = (moves % 100) / 10;
-        unsigned char ones = moves % 10;
-
-        addr = 0x2000 + (3 * 32) + 8;
-        PPU_STATUS;
-        PPU_ADDR = (unsigned char)(addr >> 8);
-        PPU_ADDR = (unsigned char)(addr & 0xFF);
-
-        PPU_DATA = hundreds ? (0x10 + hundreds) : 0x00;
-        PPU_DATA = (hundreds || tens) ? (0x10 + tens) : 0x00;
-        PPU_DATA = 0x10 + ones;
-    }
+    /* HUD digits */
+    write_digit_tile(0x2000 + (1 * 32) + 8, game->level);
+    write_digit_tile(0x2000 + (1 * 32) + 20, game->lives);
+    write_moves_3_digits(0x2000 + (3 * 32) + 8, game->moves);
 
     /* Draw towers */
     for (tower = 0; tower < NUM_TOWERS; tower++) {
@@ -271,43 +260,6 @@ void render_game(game_state_t* game) {
         PPU_ADDR = (unsigned char)(addr & 0xFF);
         PPU_DATA = 0x07;  /* Tower base tile */
     }
-
-    /* Draw blocks as sprites so each disk can be independently colored and pixel-centered */
-    for (tower = 0; tower < NUM_TOWERS; tower++) {
-        unsigned int tower_center_x = (unsigned int)tower_x[tower] * 8 + 4; /* pixel center of pole tile */
-        for (block = 0; block < game->tower_heights[tower]; block++) {
-            unsigned char block_num = game->towers[tower][block];
-            unsigned char tile;
-            unsigned char attributes;
-            int left_x;
-            unsigned char y_px;
-
-            block_width = block_num; /* in 8px tiles */
-            row = 19 - block;
-            y_px = (unsigned char)(row * 8);
-
-            block_sprite_style(block_num, &tile, &attributes);
-
-            left_x = (int)tower_center_x - ((int)block_width * 8) / 2;
-            for (col = 0; col < block_width; col++) {
-                if (sprite_index >= 64) {
-                    break;
-                }
-                oam_buffer[sprite_index].y = (unsigned char)(y_px - 1); /* NES OAM stores Y-1 */
-                oam_buffer[sprite_index].tile = tile;
-                oam_buffer[sprite_index].attributes = attributes;
-                oam_buffer[sprite_index].x = (unsigned char)(left_x + (int)col * 8);
-                sprite_index++;
-            }
-        }
-    }
-
-    /* Draw cursor/selector */
-    addr = 0x2000 + (9 * 32) + tower_x[game->selected_tower];
-    PPU_STATUS;
-    PPU_ADDR = (unsigned char)(addr >> 8);
-    PPU_ADDR = (unsigned char)(addr & 0xFF);
-    PPU_DATA = 0x21;  /* Cursor character */
 
     /* Set attribute table for block colors */
     /* Each attribute byte controls a 4x4 tile area (2x2 attribute areas) */
@@ -331,6 +283,62 @@ void render_game(game_state_t* game) {
     PPU_STATUS;
     PPU_SCROLL = 0;
     PPU_SCROLL = 0;
-    update_sprites();
     PPU_MASK = PPU_MASK_SHOW_BG | PPU_MASK_SHOW_SPRITES;
+}
+
+void render_game_hud(game_state_t* game) {
+    /* Update HUD digits only; caller should run this during vblank. */
+    write_digit_tile(0x2000 + (1 * 32) + 8, game->level);
+    write_digit_tile(0x2000 + (1 * 32) + 20, game->lives);
+    write_moves_3_digits(0x2000 + (3 * 32) + 8, game->moves);
+
+    PPU_STATUS;
+    PPU_SCROLL = 0;
+    PPU_SCROLL = 0;
+}
+
+void build_game_sprites(game_state_t* game, unsigned char show_cursor) {
+    unsigned char tower, block, col;
+    unsigned char block_width;
+    unsigned char tower_x[NUM_TOWERS] = {5, 14, 23};  /* X positions of towers */
+    unsigned char sprite_index = 0;
+
+    clear_sprites();
+
+    /* Draw blocks as sprites so each disk can be independently colored and pixel-centered */
+    for (tower = 0; tower < NUM_TOWERS; tower++) {
+        unsigned int tower_center_x = (unsigned int)tower_x[tower] * 8 + 4; /* pixel center of pole tile */
+        for (block = 0; block < game->tower_heights[tower]; block++) {
+            unsigned char block_num = game->towers[tower][block];
+            unsigned char tile;
+            unsigned char attributes;
+            int left_x;
+            unsigned char y_px;
+
+            block_width = block_num; /* in 8px tiles */
+            y_px = (unsigned char)((19 - block) * 8);
+
+            block_sprite_style(block_num, &tile, &attributes);
+
+            left_x = (int)tower_center_x - ((int)block_width * 8) / 2;
+            for (col = 0; col < block_width; col++) {
+                if (sprite_index >= 64) {
+                    break;
+                }
+                oam_buffer[sprite_index].y = (unsigned char)(y_px - 1); /* NES OAM stores Y-1 */
+                oam_buffer[sprite_index].tile = tile;
+                oam_buffer[sprite_index].attributes = attributes;
+                oam_buffer[sprite_index].x = (unsigned char)(left_x + (int)col * 8);
+                sprite_index++;
+            }
+        }
+    }
+
+    if (show_cursor && sprite_index < 64) {
+        unsigned char cursor_x = (unsigned char)(tower_x[game->selected_tower] * 8);
+        oam_buffer[sprite_index].y = (unsigned char)((9 * 8) - 1);
+        oam_buffer[sprite_index].tile = 0x21;
+        oam_buffer[sprite_index].attributes = SPRITE_PALETTE_0;
+        oam_buffer[sprite_index].x = cursor_x;
+    }
 }
