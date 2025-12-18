@@ -299,9 +299,32 @@ void show_level_complete(void) {
     PPU_DATA = 0x45; /* E */
     PPU_DATA = 0x21; /* ! */
 
+    /*
+     * Make the overlay use background palette 2 so it shows up in bright pink/magenta.
+     * "NICE!" spans attribute columns 3-4 on attribute row 1 (tile Y=6).
+     */
+    addr = 0x23C0 + (1 * 8) + 3;
+    PPU_STATUS;
+    PPU_ADDR = (unsigned char)(addr >> 8);
+    PPU_ADDR = (unsigned char)(addr & 0xFF);
+    PPU_DATA = 0xAA; /* palette 2 for all quadrants */
+    PPU_DATA = 0xAA; /* next attribute byte */
+
     PPU_STATUS;
     PPU_SCROLL = 0;
     PPU_SCROLL = 0;
+}
+
+/* Display life lost screen (used when giving up via Select). */
+void show_life_lost(void) {
+    clear_screen();
+
+    write_text(12, 10, "LIFE LOST");
+
+    PPU_CTRL = PPU_CTRL_NMI;
+    PPU_MASK = PPU_MASK_SHOW_BG;
+    clear_sprites();
+    update_sprites();
 }
 
 /* Display failed level screen */
@@ -437,17 +460,25 @@ void main(void) {
                     }
                 }
                 else if (button_pressed(BUTTON_SELECT)) {
-                    /* Give up on this level: lose a life and restart immediately */
+                    /* Give up on this level: show LIFE LOST and restart after a brief pause */
                     play_sfx_fail();
                     if (hanoi_game.lives > 0) {
                         hanoi_game.lives--;
                     }
                     if (hanoi_game.lives == 0) {
+                        show_life_lost();
+                        for (win_status = 0; win_status < 120; win_status++) {
+                            wait_vblank();
+                        }
                         game_state = STATE_GAME_OVER;
                         stop_music();
                         show_game_over();
                     } else {
+                        show_life_lost();
                         start_level(&hanoi_game);
+                        for (win_status = 0; win_status < 120; win_status++) {
+                            wait_vblank();
+                        }
                         set_bg_color(COLOR_LIGHT_BLUE);
                         needs_bg_redraw = 1;
                     }
