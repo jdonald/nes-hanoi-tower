@@ -7,6 +7,9 @@
 /* Convert ASCII character to tile number */
 unsigned char ascii_to_tile(char c);
 
+/* Set background color */
+void set_bg_color(unsigned char color);
+
 /* Write a string to the nametable at given position */
 void write_text(unsigned char x, unsigned char y, const char* text);
 

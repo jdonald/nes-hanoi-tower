@@ -29,10 +29,10 @@ void init_nes(void) {
     PPU_ADDR = 0x3F;
     PPU_ADDR = 0x00;
 
-    /* Background palette 0 */
-    PPU_DATA = COLOR_BLACK;       /* Background color */
-    PPU_DATA = COLOR_WHITE;       /* Color 1 */
-    PPU_DATA = COLOR_LIGHT_GRAY;  /* Color 2 */
+    /* Background palette 0 - will be set dynamically by set_bg_color */
+    PPU_DATA = COLOR_BLACK;       /* Universal background color */
+    PPU_DATA = COLOR_WHITE;       /* Text color */
+    PPU_DATA = COLOR_GRAY;        /* Color 2 */
     PPU_DATA = COLOR_DARK_GRAY;   /* Color 3 */
 
     /* Background palette 1 */
@@ -53,7 +53,7 @@ void init_nes(void) {
     PPU_DATA = COLOR_YELLOW_GREEN;
     PPU_DATA = COLOR_DEEP_BLUE;
 
-    /* Sprite palettes (not used yet, but set to defaults) */
+    /* Sprite palettes */
     PPU_DATA = COLOR_BLACK;
     PPU_DATA = COLOR_WHITE;
     PPU_DATA = COLOR_RED;
@@ -79,13 +79,15 @@ void init_nes(void) {
     PPU_SCROLL = 0;
     PPU_SCROLL = 0;
 
-    /* Enable NMI and rendering */
+    /* Enable NMI */
     PPU_CTRL = PPU_CTRL_NMI;
-    PPU_MASK = PPU_MASK_SHOW_BG | PPU_MASK_SHOW_SPRITES;
 }
 
 /* Display title screen */
 void show_title_screen(void) {
+    /* Set pink background for title screen */
+    set_bg_color(COLOR_PINK);
+
     clear_screen();
 
     /* Display title */
@@ -182,6 +184,8 @@ void main(void) {
                     game_state = STATE_GAMEPLAY;
                     stop_music();
                     play_song(SONG_ODE_TO_JOY);
+                    /* Set light blue background for gameplay */
+                    set_bg_color(COLOR_LIGHT_BLUE);
                     render_game(&hanoi_game);
                 }
                 break;

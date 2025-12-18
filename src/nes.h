@@ -72,11 +72,13 @@
 #define BUTTON_LEFT   0x40
 #define BUTTON_RIGHT  0x80
 
-/* Color Palette Values */
+/* Color Palette Values (NES palette hex codes) */
 #define COLOR_BLACK       0x0F
+#define COLOR_DARK_GRAY   0x00
+#define COLOR_GRAY        0x10
 #define COLOR_WHITE       0x30
-#define COLOR_LIGHT_GRAY  0x00
-#define COLOR_DARK_GRAY   0x10
+#define COLOR_LIGHT_BLUE  0x21
+#define COLOR_PINK        0x04
 #define COLOR_RED         0x16
 #define COLOR_MAGENTA     0x24
 #define COLOR_ORANGE      0x27

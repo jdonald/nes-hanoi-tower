@@ -148,6 +148,7 @@ unsigned char check_win(game_state_t* game) {
 void render_game(game_state_t* game) {
     unsigned char tower, block, row, col;
     unsigned char block_width;
+    unsigned int addr;
     unsigned char tower_x[NUM_TOWERS] = {5, 14, 23};  /* X positions of towers */
 
     /* Clear screen first */
@@ -163,20 +164,25 @@ void render_game(game_state_t* game) {
     /* Display moves */
     write_text(2, 3, "MOVES");
 
+    /* Disable rendering for PPU writes */
+    PPU_MASK = 0;
+
     /* Draw towers */
     for (tower = 0; tower < NUM_TOWERS; tower++) {
         /* Draw tower pole */
         for (row = 0; row < 10; row++) {
+            addr = 0x2000 + ((row + 10) * 32) + tower_x[tower];
             PPU_STATUS;
-            PPU_ADDR = 0x20 + (((row + 10) * 32 + tower_x[tower]) >> 8);
-            PPU_ADDR = (((row + 10) * 32 + tower_x[tower]) & 0xFF);
+            PPU_ADDR = (unsigned char)(addr >> 8);
+            PPU_ADDR = (unsigned char)(addr & 0xFF);
             PPU_DATA = 0x06;  /* Tower pole tile */
         }
 
         /* Draw tower base */
+        addr = 0x2000 + (20 * 32) + tower_x[tower];
         PPU_STATUS;
-        PPU_ADDR = 0x20 + ((20 * 32 + tower_x[tower]) >> 8);
-        PPU_ADDR = ((20 * 32 + tower_x[tower]) & 0xFF);
+        PPU_ADDR = (unsigned char)(addr >> 8);
+        PPU_ADDR = (unsigned char)(addr & 0xFF);
         PPU_DATA = 0x07;  /* Tower base tile */
 
         /* Draw blocks on this tower */
@@ -187,20 +193,25 @@ void render_game(game_state_t* game) {
 
             /* Draw the block (centered on tower) */
             for (col = 0; col < block_width; col++) {
+                addr = 0x2000 + (row * 32) + tower_x[tower] - block_width/2 + col;
                 PPU_STATUS;
-                PPU_ADDR = 0x20 + ((row * 32 + tower_x[tower] - block_width/2 + col) >> 8);
-                PPU_ADDR = ((row * 32 + tower_x[tower] - block_width/2 + col) & 0xFF);
+                PPU_ADDR = (unsigned char)(addr >> 8);
+                PPU_ADDR = (unsigned char)(addr & 0xFF);
                 PPU_DATA = 0x01;  /* Solid block tile */
             }
         }
     }
 
     /* Draw cursor/selector */
+    addr = 0x2000 + (9 * 32) + tower_x[game->selected_tower];
     PPU_STATUS;
-    PPU_ADDR = 0x20 + ((9 * 32 + tower_x[game->selected_tower]) >> 8);
-    PPU_ADDR = ((9 * 32 + tower_x[game->selected_tower]) & 0xFF);
+    PPU_ADDR = (unsigned char)(addr >> 8);
+    PPU_ADDR = (unsigned char)(addr & 0xFF);
     PPU_DATA = 0x21;  /* Cursor character */
 
-    /* Enable rendering */
-    PPU_MASK = PPU_MASK_SHOW_BG | PPU_MASK_SHOW_SPRITES;
+    /* Reset scroll and enable rendering */
+    PPU_STATUS;
+    PPU_SCROLL = 0;
+    PPU_SCROLL = 0;
+    PPU_MASK = PPU_MASK_SHOW_BG;
 }

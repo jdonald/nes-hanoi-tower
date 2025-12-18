@@ -24,6 +24,26 @@ unsigned char ascii_to_tile(char c) {
     return 0x00;  /* Default to blank */
 }
 
+/* Set background color */
+void set_bg_color(unsigned char color) {
+    /* Disable rendering */
+    PPU_MASK = 0;
+
+    /* Set universal background color (palette address $3F00) */
+    PPU_STATUS;
+    PPU_ADDR = 0x3F;
+    PPU_ADDR = 0x00;
+    PPU_DATA = color;
+
+    /* Reset scroll */
+    PPU_STATUS;
+    PPU_SCROLL = 0;
+    PPU_SCROLL = 0;
+
+    /* Re-enable rendering */
+    PPU_MASK = PPU_MASK_SHOW_BG;
+}
+
 /* Write text to nametable buffer */
 void write_text(unsigned char x, unsigned char y, const char* text) {
     unsigned int addr;
@@ -31,6 +51,9 @@ void write_text(unsigned char x, unsigned char y, const char* text) {
 
     /* Calculate nametable address */
     addr = 0x2000 + (y * 32) + x;
+
+    /* Disable rendering for safe PPU access */
+    PPU_MASK = 0;
 
     /* Set PPU address */
     PPU_STATUS;  /* Reset address latch */
@@ -43,11 +66,22 @@ void write_text(unsigned char x, unsigned char y, const char* text) {
         PPU_DATA = ascii_to_tile(text[i]);
         i++;
     }
+
+    /* Reset scroll */
+    PPU_STATUS;
+    PPU_SCROLL = 0;
+    PPU_SCROLL = 0;
+
+    /* Re-enable rendering */
+    PPU_MASK = PPU_MASK_SHOW_BG;
 }
 
 /* Clear the screen */
 void clear_screen(void) {
     unsigned int i;
+
+    /* Disable rendering for safe PPU access */
+    PPU_MASK = 0;
 
     /* Clear nametable */
     PPU_STATUS;
@@ -62,6 +96,14 @@ void clear_screen(void) {
     for (i = 0; i < 64; i++) {
         PPU_DATA = 0x00;
     }
+
+    /* Reset scroll */
+    PPU_STATUS;
+    PPU_SCROLL = 0;
+    PPU_SCROLL = 0;
+
+    /* Re-enable rendering */
+    PPU_MASK = PPU_MASK_SHOW_BG;
 }
 
 /* Update screen - wait for vblank */
