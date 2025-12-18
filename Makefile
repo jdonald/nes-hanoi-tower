@@ -20,7 +20,7 @@ LDFLAGS = -C nes.cfg
 
 # Source files
 C_SOURCES = $(wildcard $(SRC_DIR)/*.c)
-ASM_SOURCES = $(wildcard $(SRC_DIR)/*.s)
+ASM_SOURCES = $(filter-out $(SRC_DIR)/header.s $(SRC_DIR)/reset.s, $(wildcard $(SRC_DIR)/*.s))
 
 # Object files
 C_OBJECTS = $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/%.o,$(C_SOURCES))
