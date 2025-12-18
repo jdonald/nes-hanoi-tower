@@ -16,7 +16,7 @@ LD = ld65
 # Flags
 CFLAGS = -Oi -t nes
 ASFLAGS = -t nes
-LDFLAGS = -C nes.cfg -t nes
+LDFLAGS = -C nes.cfg
 
 # Source files
 C_SOURCES = $(wildcard $(SRC_DIR)/*.c)
