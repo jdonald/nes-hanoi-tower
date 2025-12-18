@@ -74,6 +74,9 @@ void init_nes(void) {
     PPU_DATA = COLOR_RED;
     PPU_DATA = COLOR_BLUE;
 
+    /* Clear any previous screen data (fixes soft reset residue) */
+    clear_screen();
+
     /* Reset scroll position */
     PPU_STATUS;
     PPU_SCROLL = 0;

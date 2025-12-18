@@ -118,12 +118,8 @@
 .byte $18,$18,$18,$18,$18,$00,$18,$00
 .byte $18,$18,$18,$18,$18,$00,$18,$00
 
-; Continue with more characters for full ASCII support
-; Tiles $22-$7F would contain remaining ASCII characters
-; For this game, we'll define the essential ones and fill rest
-
-; Basic ASCII alphabet pattern (simplified 8x8 font)
-; This would continue with all needed characters
+; Tiles $22-$40: Fill gap to reach tile $41 (31 tiles = 496 bytes)
+.res $01F0, $00
 
 ; Tile $41: 'A'
 .byte $18,$24,$42,$42,$7E,$42,$42,$00
@@ -230,4 +226,4 @@
 .byte $7E,$02,$04,$08,$10,$20,$7E,$00
 
 ; Fill remaining CHR ROM space to 8KB total (0x2000 bytes)
-.res $0C40  ; Remaining space filled with zeros
+.res $0A50  ; Remaining space filled with zeros

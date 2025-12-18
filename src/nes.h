@@ -78,7 +78,7 @@
 #define COLOR_GRAY        0x10
 #define COLOR_WHITE       0x30
 #define COLOR_LIGHT_BLUE  0x21
-#define COLOR_PINK        0x04
+#define COLOR_PINK        0x14
 #define COLOR_RED         0x16
 #define COLOR_MAGENTA     0x24
 #define COLOR_ORANGE      0x27

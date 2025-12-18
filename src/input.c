@@ -16,10 +16,10 @@ void read_controller(void) {
     CONTROLLER1 = 1;
     CONTROLLER1 = 0;
 
-    /* Read 8 buttons */
+    /* Read 8 buttons (A, B, Select, Start, Up, Down, Left, Right) */
     for (i = 0; i < 8; i++) {
-        controller1 <<= 1;
-        controller1 |= (CONTROLLER1 & 1);
+        controller1 >>= 1;
+        controller1 |= (CONTROLLER1 & 1) ? 0x80 : 0x00;
     }
 }
 
