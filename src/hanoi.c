@@ -1,6 +1,7 @@
 #include "nes.h"
 #include "hanoi.h"
 #include "text.h"
+#include "sprite.h"
 
 /* Block colors from smallest to largest */
 const unsigned char block_colors[MAX_BLOCKS] = {

@@ -54,26 +54,29 @@ void init_nes(void) {
     PPU_DATA = COLOR_WHITE;
     PPU_DATA = COLOR_BLUE;
 
-    /* Sprite palettes */
+    /* Sprite palette 0 - Blocks 1-3 (Magenta, Red, Orange) */
     PPU_DATA = COLOR_BLACK;
-    PPU_DATA = COLOR_WHITE;
+    PPU_DATA = COLOR_MAGENTA;
     PPU_DATA = COLOR_RED;
-    PPU_DATA = COLOR_BLUE;
+    PPU_DATA = COLOR_ORANGE;
 
+    /* Sprite palette 1 - Blocks 4-6 (Yellow, Yellow-Green, Green) */
     PPU_DATA = COLOR_BLACK;
-    PPU_DATA = COLOR_WHITE;
-    PPU_DATA = COLOR_RED;
-    PPU_DATA = COLOR_BLUE;
+    PPU_DATA = COLOR_YELLOW;
+    PPU_DATA = COLOR_YELLOW_GREEN;
+    PPU_DATA = COLOR_GREEN;
 
+    /* Sprite palette 2 - Blocks 7-8 (Teal, Deep Blue) */
     PPU_DATA = COLOR_BLACK;
+    PPU_DATA = COLOR_TEAL;
+    PPU_DATA = COLOR_DEEP_BLUE;
     PPU_DATA = COLOR_WHITE;
-    PPU_DATA = COLOR_RED;
-    PPU_DATA = COLOR_BLUE;
 
+    /* Sprite palette 3 - Unused */
     PPU_DATA = COLOR_BLACK;
     PPU_DATA = COLOR_WHITE;
-    PPU_DATA = COLOR_RED;
-    PPU_DATA = COLOR_BLUE;
+    PPU_DATA = COLOR_WHITE;
+    PPU_DATA = COLOR_WHITE;
 
     /* Clear any previous screen data (fixes soft reset residue) */
     clear_screen();
