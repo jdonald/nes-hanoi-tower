@@ -25,6 +25,56 @@ static unsigned char needs_hud_redraw;
 static unsigned char needs_sprite_rebuild;
 static unsigned char needs_nice_overlay;
 
+/* 3x3 "big font" for title screen, using solid BG tile $08 for filled pixels. */
+static const unsigned char big_font[][9] = {
+    /* Each character is a 3x3 tile bitmap, row-major, 1=filled */
+    /* A */ {1,1,1, 1,0,1, 1,1,1},
+    /* E */ {1,1,1, 1,1,0, 1,1,1},
+    /* F */ {1,1,1, 1,1,0, 1,0,0},
+    /* H */ {1,0,1, 1,1,1, 1,0,1},
+    /* I */ {1,1,1, 0,1,0, 1,1,1},
+    /* N */ {1,0,1, 1,1,1, 1,0,1},
+    /* O */ {1,1,1, 1,0,1, 1,1,1},
+    /* R */ {1,1,0, 1,1,1, 1,0,1},
+    /* T */ {1,1,1, 0,1,0, 0,1,0},
+    /* W */ {1,0,1, 1,0,1, 1,1,1}
+};
+
+enum {
+    BIG_A = 0,
+    BIG_E,
+    BIG_F,
+    BIG_H,
+    BIG_I,
+    BIG_N,
+    BIG_O,
+    BIG_R,
+    BIG_T,
+    BIG_W
+};
+
+static void draw_big_char(unsigned char x0, unsigned char y0, unsigned char glyph) {
+    unsigned char r, c;
+    unsigned int base = 0x2000 + ((unsigned int)y0 * 32) + x0;
+    unsigned char big_tile = 0x08; /* Solid tile using palette color 1 */
+
+    for (r = 0; r < 3; r++) {
+        PPU_STATUS;
+        PPU_ADDR = (unsigned char)((base + (unsigned int)r * 32) >> 8);
+        PPU_ADDR = (unsigned char)((base + (unsigned int)r * 32) & 0xFF);
+        for (c = 0; c < 3; c++) {
+            PPU_DATA = big_font[glyph][r * 3 + c] ? big_tile : 0x00;
+        }
+    }
+}
+
+static void draw_big_word(unsigned char x0, unsigned char y0, const unsigned char* glyphs, unsigned char len) {
+    unsigned char idx;
+    for (idx = 0; idx < len; idx++) {
+        draw_big_char((unsigned char)(x0 + idx * 4), y0, glyphs[idx]);
+    }
+}
+
 /* Initialize NES hardware */
 void init_nes(void) {
     /* Disable rendering during setup */
@@ -118,55 +168,41 @@ void show_title_screen(void) {
         PPU_DATA = 0x00;
     }
 
-    /* Clear attribute table to use palette 0 (white text) */
+    /* Clear attribute table (we'll set it after drawing) */
     for (i = 0; i < 64; i++) {
         PPU_DATA = 0x00;
     }
 
-    /* Write "TOWER OF HANOI" title at row 8 (centered) */
-    addr = 0x2000 + (8 * 32) + 7;
-    PPU_STATUS;
-    PPU_ADDR = (unsigned char)(addr >> 8);
-    PPU_ADDR = (unsigned char)(addr & 0xFF);
-    PPU_DATA = 0x54; /* T */
-    PPU_DATA = 0x4F; /* O */
-    PPU_DATA = 0x57; /* W */
-    PPU_DATA = 0x45; /* E */
-    PPU_DATA = 0x52; /* R */
-    PPU_DATA = 0x00; /* space */
-    PPU_DATA = 0x4F; /* O */
-    PPU_DATA = 0x46; /* F */
-    PPU_DATA = 0x00; /* space */
-    PPU_DATA = 0x48; /* H */
-    PPU_DATA = 0x41; /* A */
-    PPU_DATA = 0x4E; /* N */
-    PPU_DATA = 0x4F; /* O */
-    PPU_DATA = 0x49; /* I */
+    /* Draw large title: TOWER / OF / HANOI (3x tiles), centered */
+    {
+        static const unsigned char tower_glyphs[] = {BIG_T, BIG_O, BIG_W, BIG_E, BIG_R};
+        static const unsigned char of_glyphs[] = {BIG_O, BIG_F};
+        static const unsigned char hanoi_glyphs[] = {BIG_H, BIG_A, BIG_N, BIG_O, BIG_I};
 
-    /* Write "PRESS START" at row 16 */
-    addr = 0x2000 + (16 * 32) + 8;
-    PPU_STATUS;
-    PPU_ADDR = (unsigned char)(addr >> 8);
-    PPU_ADDR = (unsigned char)(addr & 0xFF);
-    PPU_DATA = 0x50; /* P */
-    PPU_DATA = 0x52; /* R */
-    PPU_DATA = 0x45; /* E */
-    PPU_DATA = 0x53; /* S */
-    PPU_DATA = 0x53; /* S */
-    PPU_DATA = 0x00; /* space */
-    PPU_DATA = 0x53; /* S */
-    PPU_DATA = 0x54; /* T */
-    PPU_DATA = 0x41; /* A */
-    PPU_DATA = 0x52; /* R */
-    PPU_DATA = 0x54; /* T */
+        /* Word widths in tiles: len*3 + (len-1)*1 */
+        unsigned char tower_w = (unsigned char)(5 * 3 + 4);
+        unsigned char of_w = (unsigned char)(2 * 3 + 1);
+        unsigned char hanoi_w = (unsigned char)(5 * 3 + 4);
 
-    /* Set attribute table to use palette 3 (cyan/blue) for title text area */
-    addr = 0x23C0 + 16;  /* Attribute byte for row 8 area */
+        unsigned char tower_x = (unsigned char)((32 - tower_w) / 2);
+        unsigned char of_x = (unsigned char)((32 - of_w) / 2);
+        unsigned char hanoi_x = (unsigned char)((32 - hanoi_w) / 2);
+
+        draw_big_word(tower_x, 6, tower_glyphs, 5);
+        draw_big_word(of_x, 10, of_glyphs, 2);
+        draw_big_word(hanoi_x, 14, hanoi_glyphs, 5);
+    }
+
+    /* Write "PRESS START" below the title */
+    write_text(10, 22, "PRESS START");
+
+    /* Set attribute table to use palette 3 (cyan/blue) for the title screen */
+    addr = 0x23C0;
     PPU_STATUS;
     PPU_ADDR = (unsigned char)(addr >> 8);
     PPU_ADDR = (unsigned char)(addr & 0xFF);
-    for (i = 0; i < 8; i++) {
-        PPU_DATA = 0xFF;  /* Palette 3 for all quadrants */
+    for (i = 0; i < 64; i++) {
+        PPU_DATA = 0xFF;
     }
 
     /* Reset scroll and enable rendering */
