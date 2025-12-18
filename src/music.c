@@ -123,7 +123,7 @@ void update_music(void) {
     } else {
         APU_PULSE1_CTRL = 0xBF;
         APU_PULSE1_TIMER_LO = (unsigned char)(note & 0xFF);
-        APU_PULSE1_TIMER_HI = (unsigned char)(note >> 8);
+        APU_PULSE1_TIMER_HI = (unsigned char)((note >> 8) & 0x07);  /* Only write timer bits, not length */
     }
 
     /* Set note duration */

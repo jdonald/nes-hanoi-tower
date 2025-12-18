@@ -17,6 +17,7 @@ enum {
 static unsigned char game_state;
 static game_state_t hanoi_game;
 static unsigned char frame_counter;
+static unsigned char level_complete_timer;
 
 /* Initialize NES hardware */
 void init_nes(void) {
@@ -47,11 +48,11 @@ void init_nes(void) {
     PPU_DATA = COLOR_ORANGE;
     PPU_DATA = COLOR_TEAL;
 
-    /* Background palette 3 */
+    /* Background palette 3 - for title screen text */
     PPU_DATA = COLOR_BLACK;
+    PPU_DATA = COLOR_TEAL;      /* Cyan text */
+    PPU_DATA = COLOR_WHITE;
     PPU_DATA = COLOR_BLUE;
-    PPU_DATA = COLOR_YELLOW_GREEN;
-    PPU_DATA = COLOR_DEEP_BLUE;
 
     /* Sprite palettes */
     PPU_DATA = COLOR_BLACK;
@@ -88,27 +89,124 @@ void init_nes(void) {
 
 /* Display title screen */
 void show_title_screen(void) {
+    unsigned int addr;
+    unsigned char i;
+
     /* Set pink background for title screen */
     set_bg_color(COLOR_PINK);
 
-    clear_screen();
+    /* Disable rendering for PPU writes */
+    PPU_MASK = 0;
 
-    /* Display title */
-    write_text(7, 8, "TOWER OF HANOI");
-    write_text(8, 12, "PRESS START");
+    /* Clear nametable */
+    PPU_STATUS;
+    PPU_ADDR = 0x20;
+    PPU_ADDR = 0x00;
+    for (i = 0; i < 240; i++) {
+        PPU_DATA = 0x00;
+        PPU_DATA = 0x00;
+        PPU_DATA = 0x00;
+        PPU_DATA = 0x00;
+    }
 
-    /* Enable rendering */
+    /* Clear attribute table to use palette 0 (white text) */
+    for (i = 0; i < 64; i++) {
+        PPU_DATA = 0x00;
+    }
+
+    /* Write "TOWER OF HANOI" title at row 8 (centered) */
+    addr = 0x2000 + (8 * 32) + 7;
+    PPU_STATUS;
+    PPU_ADDR = (unsigned char)(addr >> 8);
+    PPU_ADDR = (unsigned char)(addr & 0xFF);
+    PPU_DATA = 0x54; /* T */
+    PPU_DATA = 0x4F; /* O */
+    PPU_DATA = 0x57; /* W */
+    PPU_DATA = 0x45; /* E */
+    PPU_DATA = 0x52; /* R */
+    PPU_DATA = 0x00; /* space */
+    PPU_DATA = 0x4F; /* O */
+    PPU_DATA = 0x46; /* F */
+    PPU_DATA = 0x00; /* space */
+    PPU_DATA = 0x48; /* H */
+    PPU_DATA = 0x41; /* A */
+    PPU_DATA = 0x4E; /* N */
+    PPU_DATA = 0x4F; /* O */
+    PPU_DATA = 0x49; /* I */
+
+    /* Write "PRESS START" at row 16 */
+    addr = 0x2000 + (16 * 32) + 8;
+    PPU_STATUS;
+    PPU_ADDR = (unsigned char)(addr >> 8);
+    PPU_ADDR = (unsigned char)(addr & 0xFF);
+    PPU_DATA = 0x50; /* P */
+    PPU_DATA = 0x52; /* R */
+    PPU_DATA = 0x45; /* E */
+    PPU_DATA = 0x53; /* S */
+    PPU_DATA = 0x53; /* S */
+    PPU_DATA = 0x00; /* space */
+    PPU_DATA = 0x53; /* S */
+    PPU_DATA = 0x54; /* T */
+    PPU_DATA = 0x41; /* A */
+    PPU_DATA = 0x52; /* R */
+    PPU_DATA = 0x54; /* T */
+
+    /* Set attribute table to use palette 3 (cyan/blue) for title text area */
+    addr = 0x23C0 + 16;  /* Attribute byte for row 8 area */
+    PPU_STATUS;
+    PPU_ADDR = (unsigned char)(addr >> 8);
+    PPU_ADDR = (unsigned char)(addr & 0xFF);
+    for (i = 0; i < 8; i++) {
+        PPU_DATA = 0xFF;  /* Palette 3 for all quadrants */
+    }
+
+    /* Reset scroll and enable rendering */
+    PPU_STATUS;
+    PPU_SCROLL = 0;
+    PPU_SCROLL = 0;
     PPU_CTRL = PPU_CTRL_NMI;
     PPU_MASK = PPU_MASK_SHOW_BG;
 }
 
 /* Display level complete screen */
 void show_level_complete(void) {
-    clear_screen();
+    unsigned int addr;
+    unsigned char i;
 
-    write_text(8, 10, "LEVEL COMPLETE");
-    write_text(7, 14, "PRESS START");
+    /* Disable rendering for PPU writes */
+    PPU_MASK = 0;
 
+    /* Clear nametable */
+    PPU_STATUS;
+    PPU_ADDR = 0x20;
+    PPU_ADDR = 0x00;
+    for (i = 0; i < 240; i++) {
+        PPU_DATA = 0x00;
+        PPU_DATA = 0x00;
+        PPU_DATA = 0x00;
+        PPU_DATA = 0x00;
+    }
+
+    /* Clear attribute table */
+    for (i = 0; i < 64; i++) {
+        PPU_DATA = 0x00;
+    }
+
+    /* Write "NICE!" centered */
+    addr = 0x2000 + (12 * 32) + 14;
+    PPU_STATUS;
+    PPU_ADDR = (unsigned char)(addr >> 8);
+    PPU_ADDR = (unsigned char)(addr & 0xFF);
+    PPU_DATA = 0x4E; /* N */
+    PPU_DATA = 0x49; /* I */
+    PPU_DATA = 0x43; /* C */
+    PPU_DATA = 0x45; /* E */
+    PPU_DATA = 0x21; /* ! */
+
+    /* Reset scroll and enable rendering */
+    PPU_STATUS;
+    PPU_SCROLL = 0;
+    PPU_SCROLL = 0;
     PPU_CTRL = PPU_CTRL_NMI;
     PPU_MASK = PPU_MASK_SHOW_BG;
 }
@@ -225,6 +323,7 @@ void main(void) {
                                     show_win_screen();
                                 } else {
                                     game_state = STATE_LEVEL_COMPLETE;
+                                    level_complete_timer = 120;  /* 2 seconds at 60 FPS */
                                     show_level_complete();
                                 }
                             } else if (win_status == 2) {
@@ -259,11 +358,13 @@ void main(void) {
                 break;
 
             case STATE_LEVEL_COMPLETE:
-                /* Wait for start to continue to next level */
-                if (button_pressed(BUTTON_START)) {
+                /* Auto-proceed after timer, or immediately on Start/A button */
+                if (button_pressed(BUTTON_START) || button_pressed(BUTTON_A) || level_complete_timer == 0) {
                     start_level(&hanoi_game);
                     game_state = STATE_GAMEPLAY;
                     render_game(&hanoi_game);
+                } else {
+                    level_complete_timer--;
                 }
                 break;
 
