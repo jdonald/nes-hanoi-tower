@@ -243,10 +243,25 @@ void show_title_screen(void) {
         draw_big_word(hanoi_x, 18, hanoi_glyphs, 5);
     }
 
-    /* Write "PRESS START" below the title */
-    write_text(10, 26, "PRESS START");
+    /* Write "PRESS START" below the title (manual write; keep rendering disabled) */
+    addr = 0x2000 + (26 * 32) + 10;
+    PPU_STATUS;
+    PPU_ADDR = (unsigned char)(addr >> 8);
+    PPU_ADDR = (unsigned char)(addr & 0xFF);
+    PPU_DATA = 0x50; /* P */
+    PPU_DATA = 0x52; /* R */
+    PPU_DATA = 0x45; /* E */
+    PPU_DATA = 0x53; /* S */
+    PPU_DATA = 0x53; /* S */
+    PPU_DATA = 0x00; /* space */
+    PPU_DATA = 0x53; /* S */
+    PPU_DATA = 0x54; /* T */
+    PPU_DATA = 0x41; /* A */
+    PPU_DATA = 0x52; /* R */
+    PPU_DATA = 0x54; /* T */
 
     /* Set attribute table to use palette 0 so the big title renders all-white */
+    PPU_MASK = 0;
     addr = 0x23C0;
     PPU_STATUS;
     PPU_ADDR = (unsigned char)(addr >> 8);
