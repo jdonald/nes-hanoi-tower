@@ -200,12 +200,18 @@ void init_nes(void) {
 void show_title_screen(void) {
     unsigned int addr;
     unsigned char i;
+    unsigned char pass;
 
     /* Set pink background for title screen */
     set_bg_color(COLOR_PINK);
 
     /* Disable rendering for PPU writes */
     PPU_MASK = 0;
+    PPU_CTRL = 0;
+
+    /* Wait for vblank to avoid any emulator/PPU edge cases around VRAM writes */
+    while (!(PPU_STATUS & PPU_STATUS_VBLANK)) {
+    }
 
     /* Clear nametable */
     PPU_STATUS;
@@ -223,8 +229,8 @@ void show_title_screen(void) {
         PPU_DATA = 0x00;
     }
 
-    /* Draw large title: TOWER / OF / HANOI (5x tiles), centered */
-    {
+    /* Draw large title and prompt. Draw twice as a robustness workaround against dropped VRAM writes. */
+    for (pass = 0; pass < 2; pass++) {
         static const unsigned char tower_glyphs[] = {BIG_T, BIG_O, BIG_W, BIG_E, BIG_R};
         static const unsigned char of_glyphs[] = {BIG_O, BIG_F};
         static const unsigned char hanoi_glyphs[] = {BIG_H, BIG_A, BIG_N, BIG_O, BIG_I};
@@ -241,24 +247,24 @@ void show_title_screen(void) {
         draw_big_word(tower_x, 4, tower_glyphs, 5);
         draw_big_word(of_x, 11, of_glyphs, 2);
         draw_big_word(hanoi_x, 18, hanoi_glyphs, 5);
-    }
 
-    /* Write "PRESS START" below the title (manual write; keep rendering disabled) */
-    addr = 0x2000 + (26 * 32) + 10;
-    PPU_STATUS;
-    PPU_ADDR = (unsigned char)(addr >> 8);
-    PPU_ADDR = (unsigned char)(addr & 0xFF);
-    PPU_DATA = 0x50; /* P */
-    PPU_DATA = 0x52; /* R */
-    PPU_DATA = 0x45; /* E */
-    PPU_DATA = 0x53; /* S */
-    PPU_DATA = 0x53; /* S */
-    PPU_DATA = 0x00; /* space */
-    PPU_DATA = 0x53; /* S */
-    PPU_DATA = 0x54; /* T */
-    PPU_DATA = 0x41; /* A */
-    PPU_DATA = 0x52; /* R */
-    PPU_DATA = 0x54; /* T */
+        /* Write "PRESS START" below the title (manual write; keep rendering disabled) */
+        addr = 0x2000 + (26 * 32) + 10;
+        PPU_STATUS;
+        PPU_ADDR = (unsigned char)(addr >> 8);
+        PPU_ADDR = (unsigned char)(addr & 0xFF);
+        PPU_DATA = 0x50; /* P */
+        PPU_DATA = 0x52; /* R */
+        PPU_DATA = 0x45; /* E */
+        PPU_DATA = 0x53; /* S */
+        PPU_DATA = 0x53; /* S */
+        PPU_DATA = 0x00; /* space */
+        PPU_DATA = 0x53; /* S */
+        PPU_DATA = 0x54; /* T */
+        PPU_DATA = 0x41; /* A */
+        PPU_DATA = 0x52; /* R */
+        PPU_DATA = 0x54; /* T */
+    }
 
     /* Set attribute table to use palette 0 so the big title renders all-white */
     PPU_MASK = 0;
