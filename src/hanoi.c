@@ -219,6 +219,23 @@ void render_game(game_state_t* game) {
     PPU_DATA = 0x45; /* E */
     PPU_DATA = 0x53; /* S */
 
+    /* Write moves count (0-255) next to "MOVES" at (8, 3), padded to 3 chars */
+    {
+        unsigned char moves = game->moves;
+        unsigned char hundreds = moves / 100;
+        unsigned char tens = (moves % 100) / 10;
+        unsigned char ones = moves % 10;
+
+        addr = 0x2000 + (3 * 32) + 8;
+        PPU_STATUS;
+        PPU_ADDR = (unsigned char)(addr >> 8);
+        PPU_ADDR = (unsigned char)(addr & 0xFF);
+
+        PPU_DATA = hundreds ? (0x10 + hundreds) : 0x00;
+        PPU_DATA = (hundreds || tens) ? (0x10 + tens) : 0x00;
+        PPU_DATA = 0x10 + ones;
+    }
+
     /* Draw towers */
     for (tower = 0; tower < NUM_TOWERS; tower++) {
         /* Draw tower pole */

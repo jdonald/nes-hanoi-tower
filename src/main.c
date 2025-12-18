@@ -309,6 +309,7 @@ void main(void) {
                     }
                 }
                 else if (button_pressed(BUTTON_A)) {
+                    unsigned char should_render = 1;
                     if (hanoi_game.holding_block == 0) {
                         /* Try to pick up a block */
                         pickup_block(&hanoi_game, hanoi_game.selected_tower);
@@ -324,10 +325,12 @@ void main(void) {
                                     game_state = STATE_WIN_GAME;
                                     stop_music();
                                     show_win_screen();
+                                    should_render = 0;
                                 } else {
                                     game_state = STATE_LEVEL_COMPLETE;
                                     level_complete_timer = 120;  /* 2 seconds at 60 FPS */
                                     show_level_complete();
+                                    should_render = 0;
                                 }
                             } else if (win_status == 2) {
                                 /* Complete but not optimal - lose a life */
@@ -336,6 +339,7 @@ void main(void) {
                                     game_state = STATE_GAME_OVER;
                                     stop_music();
                                     show_game_over();
+                                    should_render = 0;
                                 } else {
                                     show_level_failed();
                                     start_level(&hanoi_game);
@@ -344,11 +348,14 @@ void main(void) {
                                         wait_vblank();
                                     }
                                     render_game(&hanoi_game);
+                                    should_render = 0;
                                 }
                             }
                         }
                     }
-                    render_game(&hanoi_game);
+                    if (should_render) {
+                        render_game(&hanoi_game);
+                    }
                 }
                 else if (button_pressed(BUTTON_B)) {
                     /* Cancel - put block back */
