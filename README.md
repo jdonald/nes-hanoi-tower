@@ -40,7 +40,11 @@ Implemented using C and the `cc65` compiler toolchain, appropriate makefiles to 
 
 The `.nes` file should be playable on any decent NES emulator.
 
-## Building
+## Download
+
+You can download `hanoi.nes` from the [releases](https://github.com/jdonald/nes-hanoi-tower/releases) tab on GitHub.
+
+## Build
 
 ### Prerequisites
 
@@ -84,7 +88,7 @@ make
 
 This creates `build/hanoi.nes` which can be played on any NES emulator.
 
-### Play the Game
+## Play the Game
 
 ```bash
 # With FCEUX (recommended):
@@ -98,7 +102,7 @@ nestopia build/hanoi.nes
 
 See [BUILD.md](BUILD.md) for additional build details and troubleshooting.
 
-## Controls
+### Controls
 
 - **D-Pad Left/Right**: Select tower
 - **A Button**: Pick up / Place block
